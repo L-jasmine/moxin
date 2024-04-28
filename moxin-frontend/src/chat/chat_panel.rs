@@ -1,6 +1,5 @@
 use crate::chat::chat_line::*;
 use crate::chat::model_selector::ModelSelectorAction;
-use crate::data::chat::Chat;
 use crate::data::store::Store;
 use crate::my_models::downloaded_files_table::DownloadedFileAction;
 use makepad_widgets::*;
@@ -11,6 +10,7 @@ live_design! {
     import makepad_widgets::theme_desktop_dark::*;
 
     import crate::shared::styles::*;
+    import crate::shared::widgets::*;
     import makepad_draw::shader::std::*;
 
     import crate::chat::model_selector::ModelSelector;
@@ -67,6 +67,7 @@ live_design! {
             width: 34,
             height: 34,
             align: {x: 0.5, y: 0.5},
+            margin: {bottom: 10},
 
             cursor: Hand,
 
@@ -75,8 +76,8 @@ live_design! {
             draw_bg: {
                 radius: 14.0,
                 color: #fff,
-                border_width: 2.0,
-                border_color: #ccc,
+                border_width: 1.0,
+                border_color: #EAECF0,
             }
 
             <Icon> {
@@ -115,11 +116,11 @@ live_design! {
             border_width: 1.0,
         }
 
-        prompt = <TextInput> {
+        prompt = <MoxinTextInput> {
             width: Fill,
             height: Fit,
 
-            empty_message: "Search Model by Keyword"
+            empty_message: "Enter a message"
             draw_bg: {
                 color: #fff
             }
@@ -133,43 +134,6 @@ live_design! {
                         #000,
                         self.prompt_enabled
                     )
-                }
-            }
-
-            // TODO find a way to override colors
-            draw_cursor: {
-                instance focus: 0.0
-                uniform border_radius: 0.5
-                fn pixel(self) -> vec4 {
-                    let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.box(
-                        0.,
-                        0.,
-                        self.rect_size.x,
-                        self.rect_size.y,
-                        self.border_radius
-                    )
-                    sdf.fill(mix(#fff, #bbb, self.focus));
-                    return sdf.result
-                }
-            }
-
-            // TODO find a way to override colors
-            draw_select: {
-                instance hover: 0.0
-                instance focus: 0.0
-                uniform border_radius: 2.0
-                fn pixel(self) -> vec4 {
-                    let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.box(
-                        0.,
-                        0.,
-                        self.rect_size.x,
-                        self.rect_size.y,
-                        self.border_radius
-                    )
-                    sdf.fill(mix(#eee, #ddd, self.focus)); // Pad color
-                    return sdf.result
                 }
             }
         }
@@ -222,8 +186,7 @@ live_design! {
     ChatPanel = {{ChatPanel}} {
         width: Fill,
         height: Fill,
-        margin: 20,
-        spacing: 30,
+        margin: {top: 0, left: 20, right: 20, bottom: 20},
 
         flow: Overlay,
 
@@ -277,7 +240,7 @@ live_design! {
             width: Fill,
             height: Fill,
 
-            margin: { top: 60 }
+            margin: { top: 86 }
             spacing: 4,
             flow: Down,
 
@@ -290,6 +253,7 @@ live_design! {
                     width: Fill,
                     height: Fill,
 
+                    drag_scrolling: false,
                     auto_tail: true,
 
                     UserChatLine = <UserChatLine> {}
@@ -334,35 +298,33 @@ impl Widget for ChatPanel {
         if let Event::Signal = event {
             let store = scope.data.get_mut::<Store>().unwrap();
 
-            if let Some(chat) = &store.current_chat {
-                match self.state {
-                    ChatPanelState::Streaming {
+            match self.state {
+                ChatPanelState::Streaming {
+                    auto_scroll_pending,
+                    auto_scroll_cancellable: _,
+                } => {
+                    self.state = ChatPanelState::Streaming {
                         auto_scroll_pending,
-                        auto_scroll_cancellable: _,
-                    } => {
-                        self.state = ChatPanelState::Streaming {
-                            auto_scroll_pending,
-                            auto_scroll_cancellable: true,
-                        };
+                        auto_scroll_cancellable: true,
+                    };
 
-                        let still_streaming = store.current_chat.as_ref().unwrap().is_streaming;
-                        if still_streaming {
-                            if auto_scroll_pending {
-                                self.scroll_messages_to_bottom(chat);
-                            }
-                        } else {
-                            // Scroll to the bottom when streaming is done
-                            self.scroll_messages_to_bottom(chat);
-                            self.state = ChatPanelState::Idle;
+                    let still_streaming = store.current_chat.as_ref().unwrap().is_streaming;
+                    if still_streaming {
+                        if auto_scroll_pending {
+                            self.scroll_messages_to_bottom(cx);
                         }
-
-                        self.update_prompt_input(cx);
-
-                        // Redraw because we expect to see new or updated chat entries
-                        self.redraw(cx);
+                    } else {
+                        // Scroll to the bottom when streaming is done
+                        self.scroll_messages_to_bottom(cx);
+                        self.state = ChatPanelState::Idle;
                     }
-                    _ => {}
+
+                    self.update_prompt_input(cx);
+
+                    // Redraw because we expect to see new or updated chat entries
+                    self.redraw(cx);
                 }
+                _ => {}
             }
         }
     }
@@ -413,16 +375,16 @@ impl Widget for ChatPanel {
                             chat_line_item.set_role("You");
                         };
 
-                        chat_line_item.set_message_text(&chat_line_data.content);
+                        chat_line_item.set_message_text(cx, &chat_line_data.content);
                         chat_line_item.set_message_id(chat_line_data.id);
 
                         // Disable actions for the last chat line when model is streaming
                         if matches!(self.state, ChatPanelState::Streaming { .. })
                             && item_id == chats_count - 1
                         {
-                            chat_line_item.set_actions_enabled(false);
+                            chat_line_item.set_actions_enabled(cx, false);
                         } else {
-                            chat_line_item.set_actions_enabled(true);
+                            chat_line_item.set_actions_enabled(cx, true);
                         }
 
                         item.draw_all(cx, &mut Scope::empty());
@@ -504,16 +466,21 @@ impl ChatPanel {
     fn jump_to_bottom_actions(&mut self, cx: &mut Cx, actions: &Actions, scope: &mut Scope) {
         if let Some(fe) = self.view(id!(jump_to_bottom)).finger_up(actions) {
             if fe.was_tap() {
-                let store = scope.data.get_mut::<Store>().unwrap();
-                if let Some(chat) = &store.current_chat {
-                    self.scroll_messages_to_bottom(chat);
-                    self.redraw(cx);
-                }
+                self.scroll_messages_to_bottom(cx);
+                self.redraw(cx);
             }
         }
 
         let jump_to_bottom = self.view(id!(jump_to_bottom));
         match self.state {
+            ChatPanelState::Streaming {
+                auto_scroll_pending: true,
+                ..
+            } => {
+                // We avoid to show this button when the list is auto-scrolling upon
+                // receiving a new message. Otherwise, the button flicks.
+                jump_to_bottom.set_visible(false);
+            }
             ChatPanelState::Idle | ChatPanelState::Streaming { .. } => {
                 let store = scope.data.get_mut::<Store>().unwrap();
                 let has_messages = store
@@ -522,10 +489,7 @@ impl ChatPanel {
                     .map_or(false, |chat| chat.messages.len() > 0);
 
                 let list = self.portal_list(id!(chat));
-
-                // TODO make it visible only when scrolling up
-                // (we need to improve PortalList API for this)
-                jump_to_bottom.set_visible(has_messages);
+                jump_to_bottom.set_visible(has_messages && list.further_items_bellow_exist());
             }
             ChatPanelState::Unload => {
                 jump_to_bottom.set_visible(false);
@@ -623,12 +587,9 @@ impl ChatPanel {
         );
     }
 
-    fn scroll_messages_to_bottom(&mut self, chat: &Chat) {
-        if chat.messages.is_empty() {
-            return;
-        }
-        let list = self.portal_list(id!(chat));
-        list.set_first_id_and_scroll(chat.messages.len() - 1, 0.0);
+    fn scroll_messages_to_bottom(&mut self, cx: &mut Cx) {
+        let mut list = self.portal_list(id!(chat));
+        list.smooth_scroll_to_end(cx, 10, 80.0);
     }
 
     fn load_model(&mut self, store: &mut Store, downloaded_file: DownloadedFile) {
@@ -669,14 +630,13 @@ impl ChatPanel {
 
         let prompt_input = self.text_input(id!(prompt));
         prompt_input.set_text_and_redraw(cx, "");
+        prompt_input.set_cursor(0, 0);
         self.update_prompt_input(cx);
 
         self.view(id!(empty_conversation)).set_visible(false);
 
         // Scroll to the bottom when the message is sent
-        if let Some(chat) = &store.current_chat {
-            self.scroll_messages_to_bottom(chat);
-        }
+        self.scroll_messages_to_bottom(cx);
 
         self.state = ChatPanelState::Streaming {
             auto_scroll_pending: true,

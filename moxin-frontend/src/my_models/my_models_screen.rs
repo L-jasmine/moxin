@@ -1,7 +1,10 @@
 use makepad_widgets::*;
 use moxin_protocol::data::DownloadedFile;
 
-use crate::{data::store::Store, shared::utils::BYTES_PER_MB};
+use crate::{
+    data::store::Store,
+    shared::utils::{open_folder, BYTES_PER_MB},
+};
 
 live_design! {
     import makepad_widgets::base::*;
@@ -9,17 +12,19 @@ live_design! {
     import makepad_draw::shader::std::*;
 
     import crate::shared::styles::*;
+    import crate::shared::widgets::*;
 
     import crate::my_models::downloaded_files_table::DownloadedFilesTable;
 
     ICON_EDIT_FOLDER = dep("crate://self/resources/icons/edit_folder.svg")
     ICON_SEARCH = dep("crate://self/resources/icons/search.svg")
+    ICON_SHOW_IN_FILES = dep("crate://self/resources/icons/visibility.svg")
 
     DownloadLocation = <RoundedView> {
         width: Fit,
         height: Fit,
         padding: {top: 6, bottom: 6, left: 4, right: 14}
-
+        align: {y: 0.5}
         spacing: 8,
 
         draw_bg: {
@@ -34,7 +39,7 @@ live_design! {
                     return #000;
                 }
             }
-            icon_walk: {width: 14, height: 14}
+            icon_walk: {width: 14, height: Fit}
         }
 
         <Label> {
@@ -46,12 +51,14 @@ live_design! {
         }
     }
 
-    ReviewInFinder = <RoundedView> {
+    ShowInFiles = <RoundedView> {
         width: Fit,
         height: Fit,
         margin: {left: 10}
         padding: {top: 6, bottom: 6, left: 4, right: 10}
         spacing: 8,
+        cursor: Hand
+        align: {y: 0.5}
 
         draw_bg: {
             instance radius: 2.0,
@@ -60,20 +67,20 @@ live_design! {
 
         <Icon> {
             draw_icon: {
-                svg_file: (ICON_EDIT_FOLDER),
+                svg_file: (ICON_SHOW_IN_FILES),
                 fn get_color(self) -> vec4 {
                     return #000;
                 }
             }
-            icon_walk: {width: 14, height: 14}
+            icon_walk: {width: 14, height: Fit}
         }
 
-        <Label> {
+        label = <Label> {
             draw_text:{
                 text_style: <REGULAR_FONT>{font_size: 11},
                 color: #000
             }
-            text: "Review in Finder"
+            text: "Show in finder"
         }
     }
 
@@ -104,59 +111,17 @@ live_design! {
                     return #666;
                 }
             }
-            icon_walk: {width: 14, height: 14}
+            icon_walk: {width: 14, height: Fit}
         }
 
-        input = <TextInput> {
+        input = <MoxinTextInput> {
             width: 260,
             height: Fit,
 
             empty_message: "Search Model by Keyword"
-            draw_bg: {
-                color: #fff
-            }
+
             draw_text: {
-                text_style:<REGULAR_FONT>{font_size: 10},
-                fn get_color(self) -> vec4 {
-                    return #555
-                }
-            }
-
-            // TODO find a way to override colors
-            draw_cursor: {
-                instance focus: 0.0
-                uniform border_radius: 0.5
-                fn pixel(self) -> vec4 {
-                    let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.box(
-                        0.,
-                        0.,
-                        self.rect_size.x,
-                        self.rect_size.y,
-                        self.border_radius
-                    )
-                    sdf.fill(mix(#fff, #bbb, self.focus));
-                    return sdf.result
-                }
-            }
-
-            // TODO find a way to override colors
-            draw_select: {
-                instance hover: 0.0
-                instance focus: 0.0
-                uniform border_radius: 2.0
-                fn pixel(self) -> vec4 {
-                    let sdf = Sdf2d::viewport(self.pos * self.rect_size);
-                    sdf.box(
-                        0.,
-                        0.,
-                        self.rect_size.x,
-                        self.rect_size.y,
-                        self.border_radius
-                    )
-                    sdf.fill(mix(#eee, #ddd, self.focus)); // Pad color
-                    return sdf.result
-                }
+                text_style:<REGULAR_FONT>{font_size: 11},
             }
         }
     }
@@ -216,27 +181,13 @@ live_design! {
             width: Fill, height: Fit
             flow: Right
             spacing: 10
+            margin: {top: 10}
             align: {x: 0.0, y: 0.5}
 
-            <Label> {
-                draw_text:{
-                    text_style: <REGULAR_FONT>{font_size: 11}
-                    color: #000
-                }
-                text: "Local Models Folder"
-            }
-            local_models_folder = <Label> {
-                draw_text:{
-                    text_style: <REGULAR_FONT>{font_size: 11}
-                    color: #222
-                }
-                text: "/Users/name/.cache/lm-studio/models"
-            }
-
             <DownloadLocation> {}
-            <ReviewInFinder> {}
+            show_in_files = <ShowInFiles> {}
             <View> { width: Fill, height: Fit }
-            <SearchBar> {}
+            search = <SearchBar> {}
         }
 
         table = <DownloadedFilesTable> {
@@ -254,6 +205,7 @@ pub struct MyModelsScreen {
 impl Widget for MyModelsScreen {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event, scope: &mut Scope) {
         self.view.handle_event(cx, event, scope);
+        self.match_event(cx, event);
     }
 
     fn draw_walk(&mut self, cx: &mut Cx2d, scope: &mut Scope, walk: Walk) -> DrawStep {
@@ -263,8 +215,48 @@ impl Widget for MyModelsScreen {
         let models_summary_label = self.view.label(id!(header.models_summary));
         models_summary_label.set_text(&summary);
 
+        self.view
+            .label(id!(show_in_files.label))
+            .set_text(&file_manager_label());
+
         self.view.draw_walk(cx, scope, walk)
     }
+}
+
+fn file_manager_label() -> String {
+    if cfg!(target_os = "windows") {
+        "Show in Explorer".to_string()
+    } else if cfg!(target_os = "macos") {
+        "Show in Finder".to_string()
+    } else {
+        "Show in File Manager".to_string()
+    }
+}
+
+impl MatchEvent for MyModelsScreen {
+    fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
+        if let Some(fe) = self.view(id!(show_in_files)).finger_up(actions) {
+            if fe.was_tap() {
+                // TODO: replace with actual downloads path in the current store.
+                open_folder(".").expect("Failed to open downloads folder");
+            }
+        }
+
+        if let Some(keywords) = self.text_input(id!(search.input)).changed(actions) {
+            if !keywords.is_empty() {
+                cx.action(MyModelsSearchAction::Search(keywords.to_string()));
+            } else {
+                cx.action(MyModelsSearchAction::Reset);
+            }
+        }
+    }
+}
+
+#[derive(Clone, DefaultNone, Debug)]
+pub enum MyModelsSearchAction {
+    Search(String),
+    Reset,
+    None,
 }
 
 fn generate_models_summary(downloaded_files: &Vec<DownloadedFile>) -> String {
