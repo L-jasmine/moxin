@@ -56,6 +56,7 @@ jobs:
 
       - name: Build
         run: |
+          source $HOME/.wasmedge/env
           cargo packager --release --verbose
           ls dist/
 
@@ -127,8 +128,6 @@ jobs:
 
       - name: Build
         run: |
-          cargo build
-      
-      - name: Build before-packaging-command
-        run: |
-          cargo build --manifest-path packaging/before-packaging-command/Cargo.toml
+          cargo packager --release --formats nsis --verbose
+          ls dist/
+          
