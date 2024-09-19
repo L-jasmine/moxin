@@ -67,6 +67,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd dist/
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*.deb --clobber
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*.tar.gz --clobber
           gh release upload ${{ github.event.inputs.release_tags }} Moxin_*.AppImage --clobber
@@ -107,6 +108,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd dist/
           gh release upload ${{ github.event.inputs.release_tags }} Moxin_*.dmg --clobber
 
   build_windows:
@@ -155,4 +157,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd dist/
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*-setup.exe --clobber
+
