@@ -70,7 +70,7 @@ jobs:
           cd dist/
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*.deb --clobber
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*.tar.gz --clobber
-          gh release upload ${{ github.event.inputs.release_tags }} Moxin_*.AppImage --clobber
+          gh release upload ${{ github.event.inputs.release_tags }} moxin_*.AppImage --clobber
 
   build_macos:
     name: MacOS
@@ -158,5 +158,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd dist/
-          gh release upload ${{ github.event.inputs.release_tags }} moxin_*-setup.exe --clobber
+          $file=Get-ChildItem -Filter *.exe
+          gh release upload ${{ github.event.inputs.release_tags }} $file.name --clobber
 
