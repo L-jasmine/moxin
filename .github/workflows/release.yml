@@ -19,6 +19,9 @@ on:
         description: 'Build Windows'
         required: false
         default: 'true'
+      release_tags:
+        description: 'Release Page Tags'
+        required: true
 
 jobs:
   build_ubuntu:
@@ -27,7 +30,7 @@ jobs:
     if: ${{ github.event.inputs.build_ubuntu == 'true' }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-22.04]
         rust: [1.79]
     env:
       LD_LIBRARY_PATH: ~\.wasmedge\lib
@@ -60,6 +63,12 @@ jobs:
           cargo packager --release --verbose
           ls dist/
 
+      - name: Upload Dist
+        run: |
+          gh release upload ${{ github.event.inputs.release_tags }} moxin_*.deb --clobber
+          gh release upload ${{ github.event.inputs.release_tags }} moxin_*.tar.gz --clobber
+          gh release upload ${{ github.event.inputs.release_tags }} Moxin_*.AppImage --clobber
+
   build_macos:
     name: MacOS
     runs-on: ${{ matrix.os }}
@@ -91,6 +100,10 @@ jobs:
         run: |
           cargo packager --release --verbose
           ls dist/
+      
+      - name: Upload Dist
+        run: |
+          gh release upload ${{ github.event.inputs.release_tags }} Moxin_*.dmg --clobber
 
   build_windows:
     name: Windows
@@ -134,4 +147,7 @@ jobs:
         run: |
           cargo packager --release --formats nsis --verbose
           ls dist/
+      - name: Upload Dist
+        run: |
+          gh release upload ${{ github.event.inputs.release_tags }} moxin_*-setup.exe --clobber
 
