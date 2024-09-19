@@ -126,8 +126,12 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      - name: Install cargo-packager
+        run: |
+          cargo +stable install --force --locked cargo-packager
+
       - name: Build
         run: |
           cargo packager --release --formats nsis --verbose
           ls dist/
-          
+
