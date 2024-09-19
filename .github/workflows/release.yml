@@ -64,6 +64,8 @@ jobs:
           ls dist/
 
       - name: Upload Dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*.deb --clobber
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*.tar.gz --clobber
@@ -102,6 +104,8 @@ jobs:
           ls dist/
       
       - name: Upload Dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ github.event.inputs.release_tags }} Moxin_*.dmg --clobber
 
@@ -148,6 +152,8 @@ jobs:
           cargo packager --release --formats nsis --verbose
           ls dist/
       - name: Upload Dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*-setup.exe --clobber
 
