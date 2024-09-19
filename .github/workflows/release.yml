@@ -156,4 +156,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ github.event.inputs.release_tags }} moxin_*-setup.exe --clobber
-
