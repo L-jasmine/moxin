@@ -1,12 +1,12 @@
 [package]
-name = "moxin-backend"
+name = "moly-backend"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-moxin-protocol = { path = "../moxin-protocol" }
+moly-protocol = { path = "../moly-protocol" }
 chrono = "0.4"
 wasmedge-sdk = { version = "0.14.0", default-features = false, features = [
     "wasi_nn",
@@ -23,4 +23,4 @@ rusqlite = { version = "0.31.0", features = ["bundled"] }
 serde = "1.0.197"
 tokio = { version = "1", features = ["full"] }
 futures-util = "0.3.30"
-git2 = "0.19.0"
+git2 = { version = "0.19.0", features = ["vendored-libgit2", "vendored-openssl"] }
